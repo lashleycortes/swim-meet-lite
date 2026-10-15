@@ -1,0 +1,35 @@
+CREATE TABLE IF NOT EXISTS teams (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(120) NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS swimmers (
+  id SERIAL PRIMARY KEY,
+  full_name VARCHAR(120) NOT NULL,
+  age INTEGER NOT NULL CHECK (age BETWEEN 1 AND 120),
+  team VARCHAR(120) NOT NULL DEFAULT 'Independent',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS meets (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(160) NOT NULL,
+  venue VARCHAR(160) NOT NULL,
+  meet_date DATE NOT NULL,
+  start_date DATE,
+  end_date DATE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS registrations (
+  id SERIAL PRIMARY KEY,
+  swimmer_id INTEGER NOT NULL REFERENCES swimmers(id) ON DELETE CASCADE,
+  meet_id INTEGER NOT NULL REFERENCES meets(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (swimmer_id, meet_id)
+);
+
+INSERT INTO meets (name, venue, meet_date, start_date, end_date)
+SELECT 'SwimMeet Lite Invitational', 'Community Aquatic Center', CURRENT_DATE + 30, CURRENT_DATE + 30, CURRENT_DATE + 30
+WHERE NOT EXISTS (SELECT 1 FROM meets);

@@ -1,0 +1,105 @@
+services:
+  proxy:
+    build:
+      context: ./proxy
+    image: swimmeet-proxy:${TAG:-dev}
+    ports:
+      - "8082:80"
+    depends_on:
+      frontend:
+        condition: service_started
+      swimmer-api:
+        condition: service_healthy
+      meet-api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - swimmeet-net
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        BUILD_TAG: ${TAG:-dev}
+    image: swimmeet-frontend:${TAG:-dev}
+    restart: unless-stopped
+    networks:
+      - swimmeet-net
+
+  swimmer-api:
+    build:
+      context: ./swimmer-api
+      target: production
+    image: swimmeet-swimmer-api:${TAG:-dev}
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      PORT: 3000
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - swimmeet-net
+      - data-net
+
+  meet-api:
+    build:
+      context: ./meet-api
+      target: production
+    image: swimmeet-meet-api:${TAG:-dev}
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      PORT: 3001
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - swimmeet-net
+      - data-net
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - swimmeet-db-data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - data-net
+
+volumes:
+  swimmeet-db-data:
+
+networks:
+  swimmeet-net:
+  data-net:
+    internal: true
