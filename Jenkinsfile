@@ -48,23 +48,25 @@ pipeline {
       }
     }
 
-    stage('Smoke Test') {
-      steps {
-        sh '''
-          for i in $(seq 1 18); do
-            if docker compose exec -T proxy wget -qO- http://localhost/api/swimmers/health >/dev/null \
-              && docker compose exec -T proxy wget -qO- http://localhost/api/meets/health >/dev/null; then
-              echo "Smoke tests passed"
-              exit 0
-            fi
-            echo "Waiting for app health..."
-            sleep 5
-          done
-          echo "Smoke test failed"
-          exit 1
-        '''
-      }
-    }
+    
+stage('Smoke Test') {
+  steps {
+    sh '''
+      for i in $(seq 1 18); do
+        if wget -qO- http://host.docker.internal:8082/api/swimmers/health >/dev/null \
+          && wget -qO- http://host.docker.internal:8082/api/meets/health >/dev/null; then
+          echo "Smoke tests passed"
+          exit 0
+        fi
+        echo "Waiting for app health..."
+        sleep 5
+      done
+      echo "Smoke test failed"
+      exit 1
+    '''
+  }
+}
+  
   }
 
   post {
