@@ -26,7 +26,7 @@ A small swim-meet registration system built to demonstrate Docker, Docker Compos
    docker compose up -d --build
    ```
 
-4. Open http://localhost:8080
+4. Open http://localhost:8082
 5. Check status:
 
    ```powershell
