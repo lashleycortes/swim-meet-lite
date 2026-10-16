@@ -1,3 +1,4 @@
+
 pipeline {
   agent any
 
@@ -7,9 +8,7 @@ pipeline {
   }
 
   triggers {
-    // Requires the GitHub plugin; also enable "GitHub hook trigger for GITScm polling" in the job.
     githubPush()
-    // Polling is a fallback when a webhook cannot reach local Jenkins.
     pollSCM('H/2 * * * *')
   }
 
@@ -21,7 +20,19 @@ pipeline {
 
   stages {
     stage('Checkout') {
-      steps { checkout scm }
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Prepare Environment') {
+      steps {
+        withCredentials([file(credentialsId: 'swimmeet-env', variable: 'ENV_FILE')]) {
+          sh '''
+            cp "$ENV_FILE" .env
+          '''
+        }
+      }
     }
 
     stage('Test') {
@@ -39,43 +50,49 @@ pipeline {
 
     stage('Deploy') {
       steps {
-        withCredentials([file(credentialsId: 'swimmeet-env', variable: 'ENV_FILE')]) {
-          sh '''
-            cp "$ENV_FILE" .env
-            docker compose up -d --no-build --remove-orphans
-          '''
-        }
+        sh 'docker compose up -d --no-build --remove-orphans'
       }
     }
 
-    
-stage('Smoke Test') {
-  steps {
-    sh '''
-      for i in $(seq 1 18); do
-        if wget -qO- http://host.docker.internal:8082/api/swimmers/health >/dev/null \
-          && wget -qO- http://host.docker.internal:8082/api/meets/health >/dev/null; then
-          echo "Smoke tests passed"
-          exit 0
-        fi
-        echo "Waiting for app health..."
-        sleep 5
-      done
-      echo "Smoke test failed"
-      exit 1
-    '''
-  }
-}
-  
+    stage('Smoke Test') {
+      steps {
+        sh '''
+          PROXY_ID=$(docker compose ps -q proxy)
+
+          if [ -z "$PROXY_ID" ]; then
+            echo "Smoke test failed: proxy container not found"
+            docker compose ps
+            exit 1
+          fi
+
+          for i in $(seq 1 18); do
+            if docker exec "$PROXY_ID" wget -qO- http://127.0.0.1/api/swimmers/health >/dev/null \
+              && docker exec "$PROXY_ID" wget -qO- http://127.0.0.1/api/meets/health >/dev/null; then
+              echo "Smoke tests passed: both API health endpoints returned successfully"
+              exit 0
+            fi
+
+            echo "Waiting for API health endpoints..."
+            sleep 5
+          done
+
+          echo "Smoke test failed"
+          docker compose ps
+          exit 1
+        '''
+      }
+    }
   }
 
   post {
     success {
       echo "SwimMeet Lite build ${TAG} deployed successfully."
     }
+
     failure {
-      echo "Pipeline failed. Check the failed stage; deployment should not run if Test failed."
+      echo "Pipeline failed. Check the failed stage."
     }
+
     always {
       sh 'rm -f .env || true'
     }
