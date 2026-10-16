@@ -5,3 +5,4 @@ npm-debug.log*
 Thumbs.db
 coverage/
 *.log
+jenkins-config-backup.xml
