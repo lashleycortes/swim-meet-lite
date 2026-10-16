@@ -128,3 +128,5 @@ Replace `1` with a build number that exists locally. Compose uses the matching t
 - This is a classroom demonstration, not a production-ready application.
 - Authentication, authorization, payments, and production hardening are intentionally out of scope.
 - The GitHub webhook, Jenkins credentials, live build, rollback, and screenshots must be configured/verified in your own environment. A ZIP cannot include your private GitHub credentials or prove that the pipeline has already run.
+
+<!-- CI trigger verification -->
