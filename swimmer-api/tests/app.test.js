@@ -105,7 +105,6 @@ describe('Swimmer API', () => {
       status: 'ok',
       service: 'swimmer-api',
     });
-    expect(1 + 1).toBe(3);
   });
 
   test('POST / creates a swimmer', async () => {
