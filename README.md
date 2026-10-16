@@ -1,62 +1,100 @@
 # SwimMeet Lite
 
-A small swim-meet registration system built to demonstrate Docker, Docker Compose, PostgreSQL persistence, and Jenkins CI/CD.
+A swim-meet registration system demonstrating Docker, Docker Compose,
+PostgreSQL persistence, and Jenkins CI/CD.
 
-## Stack
-- Frontend: HTML/CSS/JavaScript served by Nginx
-- Swimmer API: Node.js 20 + Express
-- Meet API: Node.js 20 + Express
-- Database: PostgreSQL 16
-- Reverse proxy: Nginx
-- CI/CD: Jenkins Pipeline
-- Tests: Jest (backend unit tests) and HTTP smoke checks
+## Technology stack
+
+-   **Frontend:** HTML, CSS, and JavaScript served by Nginx
+-   **Swimmer API:** Node.js 20 and Express
+-   **Meet API:** Node.js 20 and Express
+-   **Database:** PostgreSQL 16
+-   **Reverse proxy:** Nginx
+-   **CI/CD:** Jenkins Pipeline
+-   **Testing:** Jest backend tests and HTTP smoke checks
 
 ## Requirements
-- Docker Desktop with WSL 2 on Windows, or Docker Engine on Linux
-- Git
-- GitHub repository for automatic push triggers
-- Optional: ngrok if you want to use a GitHub webhook to a local Jenkins instance
 
-## 1. Run the app locally
-1. Copy `.env.example` to `.env`.
-2. Change the example passwords in `.env` to your own local development values.
-3. From this directory run:
+-   Docker Desktop with WSL 2 on Windows, or Docker Engine on Linux
+-   Git
+-   A GitHub repository for source control and automatic SCM polling
+-   Optional: a publicly reachable Jenkins URL or tunnel such as ngrok
+    for a GitHub webhook to a local Jenkins instance
 
-   ```powershell
-   docker compose up -d --build
-   ```
+## 1. Run the application locally
 
-4. Open http://localhost:8082
-5. Check status:
+1.  Copy `.env.example` to `.env`.
 
-   ```powershell
-   docker compose ps
-   docker compose logs -f
-   ```
+2.  Replace example passwords with your own local development values.
 
-The frontend supports adding swimmers, creating meets, and registering swimmers for meets. API endpoints:
-- `GET /api/swimmers/health`
-- `GET /api/swimmers/`
-- `POST /api/swimmers/`
-- `GET /api/meets/health`
-- `GET /api/meets/`
-- `POST /api/meets/`
-- `POST /api/meets/:meetId/registrations`
+3.  From the project root, run:
 
-## 2. Persistence check
-Create a swimmer, then run:
+    ``` powershell
+    docker compose up -d --build
+    ```
 
-```powershell
+4.  Open <http://localhost:8082>.
+
+5.  Check container status and logs:
+
+    ``` powershell
+    docker compose ps
+    docker compose logs -f
+    ```
+
+The frontend supports adding swimmers, creating meets, and registering
+swimmers for meets.
+
+### API endpoints
+
+  ------------------------------------------------------------------------------------
+  Method                  Endpoint                             Purpose
+  ----------------------- ------------------------------------ -----------------------
+  `GET`                   `/api/swimmers/health`               Swimmer API health
+                                                               check
+
+  `GET`                   `/api/swimmers/`                     List swimmers
+
+  `POST`                  `/api/swimmers/`                     Create a swimmer
+
+  `GET`                   `/api/meets/health`                  Meet API health check
+
+  `GET`                   `/api/meets/`                        List meets
+
+  `POST`                  `/api/meets/`                        Create a meet
+
+  `POST`                  `/api/meets/:meetId/registrations`   Register a swimmer for
+                                                               a meet
+  ------------------------------------------------------------------------------------
+
+## 2. Verify database persistence
+
+PostgreSQL uses the named Docker volume `swimmeet-db-data`.
+
+1.  Create a swimmer using the application.
+2.  Restart the application containers or database.
+3.  Reopen the application and verify that the swimmer remains.
+
+To recreate the Compose containers, run:
+
+``` powershell
 docker compose down
 docker compose up -d
 ```
 
-The swimmer should still be there because PostgreSQL uses the named volume `swimmeet-db-data`. **Do not use `docker compose down -v`** when testing persistence; `-v` deletes the volume.
+**Do not use `docker compose down -v` for this test.** The `-v` option
+removes Compose-managed volumes and can delete persisted database data.
+
+In the development environment, persistence was checked across
+application-container restarts and a database-container restart; the
+observed record counts remained unchanged.
 
 ## 3. GitHub setup
-Create an empty GitHub repository, then:
 
-```powershell
+For a new repository, create an empty GitHub repository and configure
+its remote from the project root:
+
+``` powershell
 git add .
 git commit -m "Initial SwimMeet Lite project"
 git branch -M main
@@ -64,69 +102,163 @@ git remote add origin https://github.com/YOUR-USERNAME/YOUR-REPOSITORY.git
 git push -u origin main
 ```
 
-Replace the example remote with your actual repository URL. Do not commit `.env`.
+Replace the example URL with your actual repository URL. If the remote
+is already configured, do not add it again.
 
-## 4. Start Jenkins separately
-Jenkins is deliberately in a separate Compose project so app deployments do not redeploy Jenkins.
+**Do not commit `.env` or credentials.** Use `.env.example` for safe
+example configuration and keep actual secrets in local environment files
+or Jenkins credentials.
 
-```powershell
+## 4. Run Jenkins separately
+
+Jenkins is deployed as a separate Compose project so application
+deployments do not redeploy Jenkins.
+
+From the project root:
+
+``` powershell
 cd infra/jenkins
 docker compose up -d --build
 docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
 ```
 
-Open http://localhost:8081, complete setup, install suggested plugins and the **Docker Pipeline** plugin. Create an admin user.
+Open <http://localhost:8081>, complete initial setup, install the
+required plugins, and create an administrator account.
 
-The Jenkins container uses the host Docker socket for this classroom project. This grants Jenkins extensive control over Docker and is **not a production-safe configuration**.
+The Jenkins container uses the host Docker socket for this classroom
+project. This gives Jenkins extensive control over Docker and is **not a
+production-safe configuration**.
 
-## 5. Jenkins credentials and job
-1. In Jenkins, go to **Manage Jenkins → Credentials**.
-2. Add a **Secret file** credential containing the same environment variables as your local `.env`; use ID `swimmeet-env`.
-3. Create a **Pipeline** job, choose **Pipeline script from SCM**, Git, your repository URL, branch `main`, and Script Path `Jenkinsfile`.
-4. Ensure GitHub and Pipeline plugins are installed.
+## 5. Configure Jenkins credentials and job
 
-### Automatic trigger
-Preferred: enable **GitHub hook trigger for GITScm polling** in the job and configure a GitHub webhook to:
-`https://YOUR-PUBLIC-JENKINS-URL/github-webhook/`
-Content type: `application/json`; event: push. For a local Jenkins, a tunnel such as ngrok may be needed.
+1.  In Jenkins, open **Manage Jenkins → Credentials**.
+2.  Add a **Secret file** credential containing the required environment
+    variables. Set its ID to `swimmeet-env`.
+3.  Create a **Pipeline** job.
+4.  Choose **Pipeline script from SCM**, select Git, enter the
+    repository URL, select branch `main`, and set Script Path to
+    `Jenkinsfile`.
+5.  Ensure the necessary Git, Pipeline, and Docker/Compose tooling is
+    available to Jenkins.
 
-Fallback: enable **Poll SCM** in the job with schedule `H/2 * * * *`. This checks for commits about every two minutes. Do not rely on clicking Build Now for the automatic-trigger demonstration.
+The pipeline copies the credential file to `.env` for build/deployment
+and removes `.env` in post-build cleanup.
 
-## 6. Pipeline stages
-The Jenkinsfile runs:
-1. Checkout
-2. Test (Docker test targets; a failure stops the pipeline)
-3. Build Images (tagged with Jenkins build number)
-4. Deploy (only after tests pass)
-5. Smoke Test
+## 6. Automatic SCM triggering
 
-Jenkins needs Docker CLI and Compose plugin access, provided by the custom Jenkins image.
+The Jenkinsfile is configured for GitHub push triggering and Poll SCM.
+The polling schedule is:
 
-## 7. Failed-test quality gate
-Temporarily add a deliberately failing assertion to `swimmer-api/tests/app.test.js`, commit and push it. Jenkins should fail in the Test stage before Deploy. Revert the test change afterward. Do this only in a practice branch if you do not want a failed build on `main`.
+``` text
+H/2 * * * *
+```
+
+This checks for source changes approximately every two minutes. A commit
+pushed to the tracked branch can start a build without clicking **Build
+Now**.
+
+A GitHub webhook can also be configured by enabling **GitHub hook
+trigger for GITScm polling** and setting the webhook URL to:
+
+``` text
+https://YOUR-PUBLIC-JENKINS-URL/github-webhook/
+```
+
+Use `application/json` as the content type and subscribe to push events.
+A local Jenkins instance generally needs to be reachable from GitHub for
+webhook delivery.
+
+**Verified in this project:** Jenkins build #10 was reported as started
+by an SCM change after a repository update. Build #11 completed
+successfully from `origin/main`.
+
+## 7. Jenkins pipeline stages
+
+The pipeline stages are:
+
+1.  **Checkout** --- retrieves the repository source.
+2.  **Prepare Environment** --- loads the environment file from Jenkins
+    credentials.
+3.  **Test** --- builds the API Docker test targets, which run Jest in
+    their Dockerfile test stages.
+4.  **Build Images** --- builds the frontend, APIs, and reverse-proxy
+    images using the Jenkins build number as the tag.
+5.  **Deploy** --- starts or recreates application containers using the
+    built images.
+6.  **Smoke Test** --- checks swimmer and meet API health endpoints
+    through the reverse proxy.
+
+A failure in a stage prevents later normal stages from running. The
+Jenkinsfile also contains failure-post logic intended to restore the
+previous build's tagged images if rollback images are available.
+
+### Latest recorded pipeline evidence
+
+Jenkins build **#11** finished with `SUCCESS`. Its console output shows
+all four application images were built with tag `11`, application
+containers were recreated, both APIs became healthy, and both API health
+endpoints passed the smoke checks.
+
+The test stages completed successfully in that build, but Docker
+reported cached layers for the `npm test` steps. That build log does not
+prove Jest re-executed from scratch during build #11.
 
 ## 8. Rollback
-Images are tagged with Jenkins build numbers. To roll back to an earlier successful build tag, from the repository root (with a valid `.env`):
 
-```powershell
-$env:TAG = "1"
+Application images are tagged with Jenkins build numbers. The
+Jenkinsfile contains automatic rollback logic in its failure
+post-action. It checks whether images for the immediately preceding
+build number are available, then attempts to start the application with
+that tag and checks both API health endpoints.
+
+**Rollback status:** implemented in the Jenkinsfile, but not yet
+verified by deliberately inducing a failed deployment. The fallback
+assumes the immediately preceding build number is the appropriate
+rollback version; a production-grade deployment should track the last
+known-good deployment explicitly.
+
+A manual rollback can be performed from the repository root when the
+matching images exist locally and a valid `.env` is available. For
+example, to select build tag `10`:
+
+``` powershell
+$env:TAG = "10"
 docker compose up -d --no-build
 ```
 
-Replace `1` with a build number that exists locally. Compose uses the matching tagged images and does not rebuild. The database volume is unchanged. On Windows PowerShell, clear the override afterwards with `Remove-Item Env:TAG` if needed.
+Replace `10` with the desired existing image tag. The command does not
+rebuild images, and it does not remove the database volume. Afterwards,
+clear the PowerShell environment override if needed:
+
+``` powershell
+Remove-Item Env:TAG
+```
+
+Use a known-good build tag and confirm API health endpoints after a
+manual rollback.
 
 ## Repository map
-- `frontend/`: browser interface and Dockerfile
-- `swimmer-api/`: swimmer REST API and tests
-- `meet-api/`: meet REST API and tests
-- `proxy/`: Nginx entry-point configuration
-- `db/`: initial PostgreSQL schema and seed data
-- `infra/jenkins/`: separate Jenkins deployment
-- `Jenkinsfile`: pipeline as code at repository root
 
-## Notes / limitations
-- This is a classroom demonstration, not a production-ready application.
-- Authentication, authorization, payments, and production hardening are intentionally out of scope.
-- The GitHub webhook, Jenkins credentials, live build, rollback, and screenshots must be configured/verified in your own environment. A ZIP cannot include your private GitHub credentials or prove that the pipeline has already run.
+-   `frontend/` --- browser interface and Dockerfile
+-   `swimmer-api/` --- swimmer REST API, Dockerfile, and tests
+-   `meet-api/` --- meet REST API, Dockerfile, and tests
+-   `proxy/` --- Nginx reverse-proxy configuration
+-   `db/` --- PostgreSQL initialization schema and seed data
+-   `infra/jenkins/` --- separate Jenkins deployment
+-   `Jenkinsfile` --- pipeline-as-code definition at the repository root
 
-<!-- CI trigger verification -->
+## Notes and limitations
+
+-   This is a classroom demonstration, not a production-ready
+    application.
+-   Authentication, authorization, payments, and production hardening
+    are outside the current scope.
+-   The Docker socket gives Jenkins substantial host control and should
+    be replaced with a safer build/deployment architecture for
+    production.
+-   The successful build and smoke checks are evidenced by Jenkins build
+    #11. Database persistence was checked across container restarts.
+-   Automatic rollback is present in the Jenkinsfile but has not been
+    failure-tested.
+-   Keep secrets out of source control and rotate any credential that
+    may have been exposed.
